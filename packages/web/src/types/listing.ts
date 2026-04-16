@@ -22,6 +22,8 @@ export interface FilterState {
   buildingStatus: string;
   postcode: string;
   source: string;
+  sortPrice: 'asc' | 'desc' | '';
+  topN: number; // 0 = show all
 }
 
 export interface SearchSuggestion {
@@ -32,6 +34,17 @@ export interface SearchSuggestion {
   boundingbox: string[];
   type: string;
   importance: number;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    suburb?: string;
+    county?: string;
+    state?: string;
+    postcode?: string;
+    country?: string;
+  };
 }
 
 export interface ApiResponse<T> {

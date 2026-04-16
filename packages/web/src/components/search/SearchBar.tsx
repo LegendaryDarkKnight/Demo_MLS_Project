@@ -56,7 +56,7 @@ export default function SearchBar({ onSelect }: SearchBarProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => suggestions.length > 0 && setOpen(true)}
-          placeholder="Search neighborhoods, addresses, zip codes…"
+          placeholder="Search any city, neighborhood, or zip code…"
           className={cn(
             'w-full h-9 rounded-lg border border-white/20 bg-navy-600 pl-9 pr-9 text-sm text-white',
             'placeholder:text-slate-400',

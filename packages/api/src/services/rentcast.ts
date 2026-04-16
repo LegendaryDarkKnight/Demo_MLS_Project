@@ -4,30 +4,58 @@ import path from 'path';
 import type { Listing } from './nycOpenData';
 
 const CACHE_FILE = path.join(__dirname, '../../data/rentcast-cache.json');
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — ~4 calls/month max
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days per city entry
 const BASE_URL = 'https://api.rentcast.io/v1';
 
+// In-memory store: "city:state" → listings
+const memCache = new Map<string, Listing[]>();
+
+interface CacheEntry { fetchedAt: number; listings: Listing[] }
+type DiskCache = Record<string, CacheEntry>;
+
+function cacheKey(city: string, state: string): string {
+  return `${city.toLowerCase()}:${state.toLowerCase()}`;
+}
+
+function loadDisk(): DiskCache {
+  try {
+    if (fs.existsSync(CACHE_FILE))
+      return JSON.parse(fs.readFileSync(CACHE_FILE, 'utf-8')) as DiskCache;
+  } catch { /* ignore */ }
+  return {};
+}
+
+function saveDisk(store: DiskCache): void {
+  try {
+    fs.mkdirSync(path.dirname(CACHE_FILE), { recursive: true });
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(store));
+  } catch (err) {
+    console.error('[rentcast] disk write failed:', err);
+  }
+}
+
 function zipToBorough(zip: string): string {
-  const prefix = zip.slice(0, 3);
-  if (prefix === '100' || prefix === '101' || prefix === '102') return 'Manhattan';
-  if (prefix === '104') return 'Bronx';
-  if (prefix === '112') return 'Brooklyn';
-  if (prefix === '113' || prefix === '114' || prefix === '116') return 'Queens';
-  if (prefix === '103') return 'Staten Island';
+  const p = zip.slice(0, 3);
+  if (p === '100' || p === '101' || p === '102') return 'Manhattan';
+  if (p === '104') return 'Bronx';
+  if (p === '112') return 'Brooklyn';
+  if (p === '113' || p === '114' || p === '116') return 'Queens';
+  if (p === '103') return 'Staten Island';
   return 'New York';
 }
 
-function mapRecord(r: Record<string, unknown>, index: number): Listing | null {
+function mapRecord(r: Record<string, unknown>, index: number, city: string): Listing | null {
   const address = (r.formattedAddress ?? r.addressLine1) as string | undefined;
   if (!address?.trim()) return null;
 
   const zip = (r.zipCode as string) ?? '';
   const price = (r.price as number) ?? 0;
+  const isNYC = city.toLowerCase() === 'new york';
 
   return {
     id: `rc-${(r.id as string) ?? index}`,
     projectName: address.trim(),
-    borough: zipToBorough(zip),
+    borough: isNYC ? zipToBorough(zip) : (r.city as string) ?? city,
     postcode: zip,
     latitude: (r.latitude as number) ?? 0,
     longitude: (r.longitude as number) ?? 0,
@@ -42,63 +70,48 @@ function mapRecord(r: Record<string, unknown>, index: number): Listing | null {
   };
 }
 
-interface DiskCache {
-  fetchedAt: number;
-  listings: Listing[];
-}
+export async function fetchRentCastListings(city: string, state: string): Promise<Listing[]> {
+  const key = cacheKey(city, state);
 
-function readDiskCache(): Listing[] | null {
-  try {
-    if (!fs.existsSync(CACHE_FILE)) return null;
-    const parsed: DiskCache = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf-8'));
-    if (Date.now() - parsed.fetchedAt > CACHE_TTL_MS) return null;
-    console.log('[rentcast] disk cache hit');
-    return parsed.listings;
-  } catch {
-    return null;
-  }
-}
+  // 1. In-memory hit
+  if (memCache.has(key)) return memCache.get(key)!;
 
-function writeDiskCache(listings: Listing[]): void {
-  try {
-    fs.mkdirSync(path.dirname(CACHE_FILE), { recursive: true });
-    fs.writeFileSync(CACHE_FILE, JSON.stringify({ fetchedAt: Date.now(), listings }));
-    console.log(`[rentcast] cached ${listings.length} listings to disk`);
-  } catch (err) {
-    console.error('[rentcast] failed to write disk cache:', err);
-  }
-}
-
-let memCache: Listing[] | null = null;
-
-export async function fetchRentCastListings(): Promise<Listing[]> {
-  if (memCache) return memCache;
-
-  const disk = readDiskCache();
-  if (disk) {
-    memCache = disk;
-    return memCache;
+  // 2. Disk hit
+  const store = loadDisk();
+  const entry = store[key];
+  if (entry && Date.now() - entry.fetchedAt < CACHE_TTL_MS) {
+    console.log(`[rentcast] disk cache hit for ${key}`);
+    memCache.set(key, entry.listings);
+    return entry.listings;
   }
 
+  // 3. Live fetch
   const apiKey = process.env.RENT_CAST_API;
   if (!apiKey) {
-    console.warn('[rentcast] RENT_CAST_API not set — skipping');
+    console.warn('[rentcast] RENT_CAST_API not set');
     return [];
   }
 
-  console.log('[rentcast] fetching fresh data from API (1 of ~50 monthly calls)');
-  const { data } = await axios.get(`${BASE_URL}/listings/rental/long-term`, {
-    params: { city: 'New York', state: 'NY', status: 'Active', limit: 500 },
-    headers: { 'X-Api-Key': apiKey },
-    timeout: 20_000,
-  });
+  console.log(`[rentcast] fetching ${city}, ${state} (1 of ~50 monthly calls)`);
+  try {
+    const { data } = await axios.get(`${BASE_URL}/listings/rental/long-term`, {
+      params: { city, state, status: 'Active', limit: 500 },
+      headers: { 'X-Api-Key': apiKey },
+      timeout: 20_000,
+    });
 
-  const raw = Array.isArray(data) ? data : [];
-  const listings = raw
-    .map((r, i) => mapRecord(r as Record<string, unknown>, i))
-    .filter((l): l is Listing => l !== null);
+    const raw = Array.isArray(data) ? data : [];
+    const listings = raw
+      .map((r, i) => mapRecord(r as Record<string, unknown>, i, city))
+      .filter((l): l is Listing => l !== null);
 
-  writeDiskCache(listings);
-  memCache = listings;
-  return listings;
+    store[key] = { fetchedAt: Date.now(), listings };
+    saveDisk(store);
+    memCache.set(key, listings);
+    console.log(`[rentcast] cached ${listings.length} listings for ${key}`);
+    return listings;
+  } catch (err) {
+    console.error(`[rentcast] fetch failed for ${key}:`, err);
+    return [];
+  }
 }

@@ -23,14 +23,14 @@ router.get('/', async (req: Request, res: Response) => {
     return res.json({ success: true, data: [] });
   }
 
-  const query = `${q.trim()}, New York City, NY`;
+  const query = q.trim();
   const cacheKey = `search:${query.toLowerCase()}`;
   const hit = getCached<NominatimResult[]>(cacheKey);
   if (hit) return res.json({ success: true, data: hit });
 
   try {
     const { data } = await axios.get<NominatimResult[]>(`${NOMINATIM}/search`, {
-      params: { q: query, format: 'json', addressdetails: 1, limit: 6, countrycodes: 'us' },
+      params: { q: query, format: 'json', addressdetails: 1, limit: 8, countrycodes: 'us' },
       headers: { 'User-Agent': UA, Accept: 'application/json' },
       timeout: 8_000,
     });

@@ -12,6 +12,8 @@ export const apiClient = axios.create({
 export async function getListings(params: {
   borough?: string;
   postcode?: string;
+  city?: string;
+  state?: string;
   limit?: number;
   offset?: number;
 }): Promise<{ listings: Listing[]; total: number }> {

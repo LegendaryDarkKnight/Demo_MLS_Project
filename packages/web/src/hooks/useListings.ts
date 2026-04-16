@@ -4,6 +4,8 @@ import { getListings } from '@/lib/api';
 interface ListingFilters {
   borough?: string;
   postcode?: string;
+  city?: string;
+  state?: string;
 }
 
 export function useListings(filters: ListingFilters = {}) {
@@ -13,6 +15,8 @@ export function useListings(filters: ListingFilters = {}) {
       getListings({
         borough: filters.borough || undefined,
         postcode: filters.postcode || undefined,
+        city: filters.city || undefined,
+        state: filters.state || undefined,
         limit: 200,
       }),
     staleTime: 5 * 60 * 1000,

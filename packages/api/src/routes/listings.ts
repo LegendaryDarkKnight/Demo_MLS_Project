@@ -4,24 +4,47 @@ import { fetchRentCastListings } from '../services/rentcast';
 
 const router = Router();
 
+function isNYC(city?: string, state?: string): boolean {
+  if (!city && !state) return true; // default → NYC
+  if ((state ?? '').toUpperCase() !== 'NY') return false;
+  const c = (city ?? '').toLowerCase();
+  return ['new york', 'manhattan', 'brooklyn', 'queens', 'bronx', 'staten island', ''].some(
+    (v) => c === v || c.includes('new york')
+  );
+}
+
 // GET /api/listings
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { borough, postcode, limit = '150', offset = '0' } = req.query as Record<string, string>;
+    const {
+      borough, postcode,
+      city, state,
+      limit = '200', offset = '0',
+    } = req.query as Record<string, string>;
+
     const boroughFilter = borough?.trim() || undefined;
     const postcodeFilter = postcode?.trim() || undefined;
+    const cityParam = city?.trim() || undefined;
+    const stateParam = state?.trim() || undefined;
+    const nyc = isNYC(cityParam, stateParam);
+
+    // Resolve which city/state to query RentCast with
+    const rcCity = cityParam ?? 'New York';
+    const rcState = stateParam ?? 'NY';
 
     const [nycResult, rentcastAll] = await Promise.all([
-      fetchListings({
-        borough: boroughFilter,
-        postcode: postcodeFilter,
-        limit: Math.min(parseInt(limit) || 150, 500),
-        offset: parseInt(offset) || 0,
-      }),
-      fetchRentCastListings(),
+      nyc
+        ? fetchListings({
+            borough: boroughFilter,
+            postcode: postcodeFilter,
+            limit: Math.min(parseInt(limit) || 200, 500),
+            offset: parseInt(offset) || 0,
+          })
+        : Promise.resolve({ listings: [], total: 0 }),
+      fetchRentCastListings(rcCity, rcState),
     ]);
 
-    // Filter RentCast listings in-memory (full dataset is cached locally)
+    // Filter RentCast in-memory (entire city dataset is cached locally)
     let rentcastListings = rentcastAll;
     if (boroughFilter) {
       rentcastListings = rentcastListings.filter((l) =>
@@ -41,6 +64,8 @@ router.get('/', async (req: Request, res: Response) => {
         total: combined.length,
         nycTotal: nycResult.listings.length,
         rentcastTotal: rentcastListings.length,
+        city: rcCity,
+        state: rcState,
         limit: parseInt(limit),
         offset: parseInt(offset),
       },
@@ -57,12 +82,10 @@ router.get('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     const [{ listings: nycListings }, rentcastAll] = await Promise.all([
       fetchListings({ limit: 500 }),
-      fetchRentCastListings(),
+      fetchRentCastListings('New York', 'NY'),
     ]);
     const listing = [...nycListings, ...rentcastAll].find((l) => l.id === id);
-    if (!listing) {
-      return res.status(404).json({ success: false, error: 'Listing not found' });
-    }
+    if (!listing) return res.status(404).json({ success: false, error: 'Listing not found' });
     res.json({ success: true, data: listing });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to fetch listing' });
