@@ -13,6 +13,7 @@ interface ListingGridProps {
   isError: boolean;
   viewMode: 'grid' | 'list';
   hoveredId: string | null;
+  selectedId?: string | null;
   onHover: (id: string | null) => void;
   onSelect: (listing: Listing) => void;
 }
@@ -27,18 +28,19 @@ export default function ListingGrid({
   isError,
   viewMode,
   hoveredId,
+  selectedId,
   onHover,
   onSelect,
 }: ListingGridProps) {
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  // Scroll to card when map pin clicked (hoveredId changes from map)
+  // Scroll only on explicit selection to avoid fighting with normal scrolling.
   useEffect(() => {
-    if (hoveredId) {
-      const el = cardRefs.current.get(hoveredId);
+    if (selectedId) {
+      const el = cardRefs.current.get(selectedId);
       el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-  }, [hoveredId]);
+  }, [selectedId]);
 
   if (isError) {
     return (

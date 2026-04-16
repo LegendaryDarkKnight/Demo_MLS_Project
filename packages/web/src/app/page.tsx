@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { Map } from 'lucide-react';
 import { useListings } from '@/hooks/useListings';
@@ -49,12 +49,17 @@ export default function HomePage() {
   const filteredListings = useMemo<Listing[]>(() => {
     if (!data?.listings) return [];
     return data.listings.filter((l) => {
-      if (filters.priceMin > 0 && l.priceRange.max < filters.priceMin) return false;
-      if (filters.priceMax < 99999 && l.priceRange.min > filters.priceMax) return false;
+      // Strict price filtering: listing range must stay inside the selected range.
+      if (filters.priceMin > 0 && l.priceRange.min < filters.priceMin) return false;
+      if (filters.priceMax < 99999 && l.priceRange.max > filters.priceMax) return false;
       if (filters.buildingStatus && l.buildingStatus !== filters.buildingStatus) return false;
       return true;
     });
   }, [data, filters]);
+
+  const handleHover = useCallback((id: string | null) => {
+    setHoveredId((prev) => (prev === id ? prev : id));
+  }, []);
 
   function handleSearch(result: SearchSuggestion) {
     const lat = parseFloat(result.lat);
@@ -103,7 +108,7 @@ export default function HomePage() {
             center={mapCenter}
             zoom={mapZoom}
             onListingClick={handlePinClick}
-            onListingHover={setHoveredId}
+            onListingHover={handleHover}
           />
 
           {/* "Back to list" overlay on mobile map */}
@@ -130,7 +135,8 @@ export default function HomePage() {
             isError={isError}
             viewMode={viewMode}
             hoveredId={hoveredId}
-            onHover={setHoveredId}
+            selectedId={selectedListing?.id ?? null}
+            onHover={handleHover}
             onSelect={setSelectedListing}
           />
         </div>

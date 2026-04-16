@@ -128,7 +128,7 @@ export default function MapView({
       const borough = listingMap.get(id)?.borough ?? '';
       const color = getBoroughPinColor(borough);
 
-      marker.setRadius(isHovered ? 14 : 9);
+      marker.setRadius(isHovered ? 11 : 9);
       marker.setStyle({
         fillColor: isHovered ? '#E05C2A' : color,
         fillOpacity: isHovered ? 0.95 : 0.82,
