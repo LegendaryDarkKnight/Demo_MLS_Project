@@ -49,9 +49,11 @@ export default function HomePage() {
   const filteredListings = useMemo<Listing[]>(() => {
     if (!data?.listings) return [];
     return data.listings.filter((l) => {
-      // Strict price filtering: listing range must stay inside the selected range.
-      if (filters.priceMin > 0 && l.priceRange.min < filters.priceMin) return false;
-      if (filters.priceMax < 99999 && l.priceRange.max > filters.priceMax) return false;
+      // Use priceRange.min as the representative price so each listing falls into
+      // exactly one bucket (exclusive upper bound), keeping filter counts consistent.
+      const price = l.priceRange.min;
+      if (filters.priceMin > 0 && price < filters.priceMin) return false;
+      if (filters.priceMax < 99999 && price >= filters.priceMax) return false;
       if (filters.buildingStatus && l.buildingStatus !== filters.buildingStatus) return false;
       return true;
     });
