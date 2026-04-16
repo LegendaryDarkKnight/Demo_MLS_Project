@@ -12,6 +12,7 @@ export interface Listing {
   priceRange: { min: number; max: number };
   bedrooms: number;
   amenities: string[];
+  source: 'nyc-open-data' | 'rentcast';
 }
 
 export interface FilterState {
@@ -20,6 +21,7 @@ export interface FilterState {
   priceMax: number;
   buildingStatus: string;
   postcode: string;
+  source: string;
 }
 
 export interface SearchSuggestion {

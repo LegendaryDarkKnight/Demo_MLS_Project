@@ -36,6 +36,7 @@ export interface Listing {
   priceRange: { min: number; max: number };
   bedrooms: number;
   amenities: string[];
+  source: 'nyc-open-data' | 'rentcast';
 }
 
 const BOROUGH_COORDS: Record<string, [number, number]> = {
@@ -121,6 +122,7 @@ function mapRecord(raw: RawNYCRecord, index: number): Listing | null {
     priceRange,
     bedrooms: 1 + Math.floor(rng() * 3),
     amenities: shuffled.slice(0, amenityCount),
+    source: 'nyc-open-data',
   };
 }
 

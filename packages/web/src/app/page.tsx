@@ -26,6 +26,7 @@ const DEFAULT_FILTERS: FilterState = {
   priceMax: 99999,
   buildingStatus: '',
   postcode: '',
+  source: '',
 };
 
 const NYC_CENTER: [number, number] = [40.7128, -74.006];
@@ -55,6 +56,7 @@ export default function HomePage() {
       if (filters.priceMin > 0 && price < filters.priceMin) return false;
       if (filters.priceMax < 99999 && price >= filters.priceMax) return false;
       if (filters.buildingStatus && l.buildingStatus !== filters.buildingStatus) return false;
+      if (filters.source && l.source !== filters.source) return false;
       return true;
     });
   }, [data, filters]);

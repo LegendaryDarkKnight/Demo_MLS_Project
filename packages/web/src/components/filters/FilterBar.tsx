@@ -8,7 +8,11 @@ import type { FilterState } from '@/types/listing';
 import { cn } from '@/lib/utils';
 
 const BOROUGHS = ['Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island'];
-const STATUSES = ['Completed', 'In Progress'];
+const SOURCES = [
+  { label: 'NYC Open Data', value: 'nyc-open-data' },
+  { label: 'RentCast', value: 'rentcast' },
+];
+const STATUSES = ['Completed', 'In Progress', 'Active', 'Inactive'];
 const PRICE_PRESETS = [
   { label: 'Any Price', min: 0, max: 99999 },
   { label: 'Under $2,000', min: 0, max: 2000 },
@@ -37,11 +41,11 @@ export default function FilterBar({
   }
 
   const hasActiveFilters =
-    filters.borough || filters.buildingStatus || filters.postcode ||
+    filters.borough || filters.buildingStatus || filters.postcode || filters.source ||
     filters.priceMin > 0 || filters.priceMax < 99999;
 
   function clearFilters() {
-    onFiltersChange({ borough: '', priceMin: 0, priceMax: 99999, buildingStatus: '', postcode: '' });
+    onFiltersChange({ borough: '', priceMin: 0, priceMax: 99999, buildingStatus: '', postcode: '', source: '' });
   }
 
   return (
@@ -98,6 +102,21 @@ export default function FilterBar({
               <SelectItem value="__all__">Any Status</SelectItem>
               {STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Source */}
+        <div className="flex-shrink-0 w-36">
+          <Select value={filters.source || '__all__'} onValueChange={(v) => set({ source: v === '__all__' ? '' : v })}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Data Source" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All Sources</SelectItem>
+              {SOURCES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>

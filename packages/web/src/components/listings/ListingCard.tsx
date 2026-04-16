@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { Bed, Building2, MapPin, Star } from 'lucide-react';
+import { Bed, Building2, Database, MapPin, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatPrice, getBoroughAccent, getListingImage } from '@/lib/utils';
@@ -72,6 +72,12 @@ export default function ListingCard({
               <span className="flex items-center gap-1"><Bed className="h-3 w-3" />{listing.bedrooms}bd</span>
               <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{listing.totalUnits} units</span>
             </div>
+          </div>
+          <div className="flex items-center gap-1 mt-1.5 pt-1.5 border-t border-slate-100">
+            <Database className="h-2.5 w-2.5 text-slate-300" />
+            <span className="text-[10px] text-slate-400">
+              {listing.source === 'rentcast' ? 'RentCast' : 'NYC Open Data'}
+            </span>
           </div>
         </div>
       </motion.div>
@@ -164,15 +170,25 @@ export default function ListingCard({
         </div>
 
         {/* Amenity pills */}
-        <div className="flex flex-wrap gap-1 mt-3">
-          {listing.amenities.slice(0, 3).map((a) => (
-            <span key={a} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
-              {a}
-            </span>
-          ))}
-          {listing.amenities.length > 3 && (
-            <span className="text-xs text-slate-400 px-1">+{listing.amenities.length - 3} more</span>
-          )}
+        {listing.amenities.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-3">
+            {listing.amenities.slice(0, 3).map((a) => (
+              <span key={a} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                {a}
+              </span>
+            ))}
+            {listing.amenities.length > 3 && (
+              <span className="text-xs text-slate-400 px-1">+{listing.amenities.length - 3} more</span>
+            )}
+          </div>
+        )}
+
+        {/* Source footer */}
+        <div className="flex items-center gap-1 mt-3 pt-2 border-t border-slate-100">
+          <Database className="h-2.5 w-2.5 text-slate-300" />
+          <span className="text-[10px] text-slate-400">
+            {listing.source === 'rentcast' ? 'RentCast' : 'NYC Open Data'}
+          </span>
         </div>
       </div>
     </motion.div>
