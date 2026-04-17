@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { SearchX } from 'lucide-react';
+import { SearchX, ChevronDown } from 'lucide-react';
 import ListingCard from './ListingCard';
 import SkeletonCard from './SkeletonCard';
 import type { Listing } from '@/types/listing';
@@ -16,11 +16,9 @@ interface ListingGridProps {
   selectedId?: string | null;
   onHover: (id: string | null) => void;
   onSelect: (listing: Listing) => void;
+  displayCount?: number;
+  onShowMore?: () => void;
 }
-
-const containerVariants = {
-  visible: { transition: { staggerChildren: 0.05 } },
-};
 
 export default function ListingGrid({
   listings,
@@ -31,14 +29,22 @@ export default function ListingGrid({
   selectedId,
   onHover,
   onSelect,
+  displayCount,
+  onShowMore,
 }: ListingGridProps) {
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const visible = displayCount ? listings.slice(0, displayCount) : listings;
+  const hasMore = displayCount ? listings.length > displayCount : false;
+  const remaining = displayCount ? listings.length - displayCount : 0;
 
-  // Scroll only on explicit selection to avoid fighting with normal scrolling.
   useEffect(() => {
     if (selectedId) {
       const el = cardRefs.current.get(selectedId);
-      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const inView = rect.top >= 0 && rect.bottom <= window.innerHeight;
+        if (!inView) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
     }
   }, [selectedId]);
 
@@ -59,8 +65,8 @@ export default function ListingGrid({
       <div
         className={
           viewMode === 'grid'
-            ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 p-4'
-            : 'flex flex-col gap-3 p-4'
+            ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 p-5'
+            : 'flex flex-col gap-4 p-5'
         }
       >
         {Array.from({ length: 9 }).map((_, i) => (
@@ -83,21 +89,22 @@ export default function ListingGrid({
   }
 
   return (
-    <div className="p-4">
-      <motion.div
-        variants={containerVariants}
-        initial="visible"
-        animate="visible"
+    <div className="p-5 pb-8">
+      <div
         className={
           viewMode === 'grid'
-            ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4'
-            : 'flex flex-col gap-3'
+            ? 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5'
+            : 'flex flex-col gap-4'
         }
       >
-        <AnimatePresence>
-          {listings.map((listing) => (
-            <div
+        <AnimatePresence mode="popLayout">
+          {visible.map((listing) => (
+            <motion.div
               key={listing.id}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
               ref={(el) => {
                 if (el) cardRefs.current.set(listing.id, el);
                 else cardRefs.current.delete(listing.id);
@@ -110,10 +117,23 @@ export default function ListingGrid({
                 onHover={onHover}
                 onSelect={onSelect}
               />
-            </div>
+            </motion.div>
           ))}
         </AnimatePresence>
-      </motion.div>
+      </div>
+
+      {hasMore && onShowMore && (
+        <div className="flex flex-col items-center gap-1 mt-8">
+          <p className="text-sm text-slate-400">{remaining} more listings</p>
+          <button
+            onClick={onShowMore}
+            className="flex items-center gap-2 mt-1 px-6 py-2.5 rounded-full border border-slate-300 bg-white text-sm font-medium text-navy-700 hover:border-navy-700 hover:bg-navy-700 hover:text-white transition-all duration-200 shadow-sm"
+          >
+            <ChevronDown className="h-4 w-4" />
+            Show more
+          </button>
+        </div>
+      )}
     </div>
   );
 }

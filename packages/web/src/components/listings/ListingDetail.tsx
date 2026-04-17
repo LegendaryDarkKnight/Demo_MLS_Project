@@ -125,22 +125,34 @@ export default function ListingDetail({ listing, isOpen, onClose }: ListingDetai
           {/* Map location */}
           <div>
             <h4 className="text-sm font-semibold text-navy-700 mb-2">Location</h4>
-            <div className="rounded-xl overflow-hidden border border-slate-200 h-36 bg-slate-100 flex items-center justify-center">
-              <a
-                href={`https://www.openstreetmap.org/?mlat=${listing.latitude}&mlon=${listing.longitude}#map=15/${listing.latitude}/${listing.longitude}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex flex-col items-center gap-2 text-slate-500 hover:text-brand transition-colors"
-              >
+            <a
+              href={`https://www.openstreetmap.org/?mlat=${listing.latitude}&mlon=${listing.longitude}#map=15/${listing.latitude}/${listing.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group block rounded-xl overflow-hidden border border-slate-200 relative"
+            >
+              {/* Static map tile */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://staticmap.openstreetmap.de/staticmap.php?center=${listing.latitude},${listing.longitude}&zoom=15&size=560x180&markers=${listing.latitude},${listing.longitude},red`}
+                alt="Map location"
+                className="w-full h-40 object-cover"
+                onError={(e) => {
+                  const target = e.currentTarget as HTMLImageElement;
+                  target.style.display = 'none';
+                  if (target.nextElementSibling) (target.nextElementSibling as HTMLElement).style.display = 'flex';
+                }}
+              />
+              <div className="hidden h-40 w-full bg-slate-100 items-center justify-center flex-col gap-2 text-slate-400">
                 <MapPin className="h-8 w-8" />
-                <span className="text-xs font-medium">
-                  {listing.latitude.toFixed(4)}, {listing.longitude.toFixed(4)}
+                <span className="text-xs">{listing.latitude.toFixed(4)}, {listing.longitude.toFixed(4)}</span>
+              </div>
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-end justify-end p-2">
+                <span className="text-xs bg-white/90 text-navy-700 px-2 py-1 rounded-full flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shadow">
+                  Open in OpenStreetMap <ChevronRight className="h-3 w-3" />
                 </span>
-                <span className="text-xs flex items-center gap-1 underline underline-offset-2">
-                  View on OpenStreetMap <ChevronRight className="h-3 w-3" />
-                </span>
-              </a>
-            </div>
+              </div>
+            </a>
           </div>
 
           {/* Contact form */}

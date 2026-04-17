@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Map } from 'lucide-react';
 import { useListings } from '@/hooks/useListings';
@@ -44,6 +44,7 @@ export default function HomePage() {
   const [mapZoom, setMapZoom] = useState(11);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showMobileMap, setShowMobileMap] = useState(false);
+  const [displayCount, setDisplayCount] = useState(10);
 
   const { data, isLoading, isError } = useListings({
     borough: filters.borough || undefined,
@@ -77,9 +78,21 @@ export default function HomePage() {
     return results;
   }, [data, filters, location]);
 
+  // Reset display count whenever filters or location change
+  useEffect(() => {
+    setDisplayCount(10);
+  }, [filters, location]);
+
   const handleHover = useCallback((id: string | null) => {
     setHoveredId((prev) => (prev === id ? prev : id));
   }, []);
+
+  function handleCardSelect(listing: Listing) {
+    setSelectedListing(listing);
+    setHoveredId(listing.id);
+    setMapCenter([listing.latitude, listing.longitude]);
+    setMapZoom(15);
+  }
 
   function handleSearch(result: SearchSuggestion) {
     const lat = parseFloat(result.lat);
@@ -110,6 +123,8 @@ export default function HomePage() {
   function handlePinClick(listing: Listing) {
     setSelectedListing(listing);
     setHoveredId(listing.id);
+    setMapCenter([listing.latitude, listing.longitude]);
+    setMapZoom(15);
   }
 
   return (
@@ -161,7 +176,9 @@ export default function HomePage() {
             hoveredId={hoveredId}
             selectedId={selectedListing?.id ?? null}
             onHover={handleHover}
-            onSelect={setSelectedListing}
+            onSelect={handleCardSelect}
+            displayCount={displayCount}
+            onShowMore={() => setDisplayCount((n) => n + 20)}
           />
         </div>
       </div>
