@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
-import { SlidersHorizontal, LayoutGrid, List, MapPin, X, ChevronDown } from 'lucide-react';
+import { SlidersHorizontal, LayoutGrid, List, MapPin, X, ChevronDown, Map } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -40,6 +40,8 @@ interface FilterBarProps {
   onViewModeChange: (v: 'grid' | 'list') => void;
   activeLocation: { label: string; isNYC: boolean } | null;
   onClearLocation: () => void;
+  showMap?: boolean;
+  onMapToggle?: () => void;
 }
 
 function activeCount(f: FilterState): number {
@@ -67,6 +69,8 @@ export default function FilterBar({
   onViewModeChange,
   activeLocation,
   onClearLocation,
+  showMap,
+  onMapToggle,
 }: FilterBarProps) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -169,6 +173,22 @@ export default function FilterBar({
         <span className="flex-shrink-0 text-xs text-slate-500 hidden sm:block">
           <span className="font-semibold text-navy-700">{resultCount.toLocaleString()}</span> results
         </span>
+
+        {/* Map toggle — desktop only */}
+        {onMapToggle && (
+          <button
+            onClick={onMapToggle}
+            title={showMap ? 'Hide map' : 'Show map'}
+            className={cn(
+              'hidden md:flex flex-shrink-0 h-8 w-8 items-center justify-center rounded-lg border transition-colors',
+              showMap
+                ? 'bg-navy-700 border-navy-700 text-white'
+                : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+            )}
+          >
+            <Map className="h-4 w-4" />
+          </button>
+        )}
 
         {/* View mode toggle */}
         <div className="flex-shrink-0 flex items-center rounded-lg border border-slate-200 overflow-hidden">

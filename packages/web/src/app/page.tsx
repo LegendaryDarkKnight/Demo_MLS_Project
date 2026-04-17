@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Map } from 'lucide-react';
 import { useListings } from '@/hooks/useListings';
+import { useMapToggle } from '@/hooks/useMapToggle';
 import Header from '@/components/layout/Header';
 import FilterBar from '@/components/filters/FilterBar';
 import ListingGrid from '@/components/listings/ListingGrid';
@@ -43,7 +44,8 @@ export default function HomePage() {
   const [mapCenter, setMapCenter] = useState<[number, number]>(NYC_CENTER);
   const [mapZoom, setMapZoom] = useState(11);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [showMobileMap, setShowMobileMap] = useState(false);
+  const { showMap, toggle: toggleMap } = useMapToggle(true);
+  const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const [displayCount, setDisplayCount] = useState(10);
 
   const { data, isLoading, isError } = useListings({
@@ -139,14 +141,16 @@ export default function HomePage() {
         onViewModeChange={setViewMode}
         activeLocation={location ? { label: location.label, isNYC: location.isNYC } : null}
         onClearLocation={clearLocation}
+        showMap={showMap}
+        onMapToggle={toggleMap}
       />
 
       <div className="flex flex-1 overflow-hidden">
         <div
           className={[
             'flex-shrink-0 relative',
-            'hidden md:flex md:w-[42%] lg:w-[38%]',
-            showMobileMap ? '!flex !w-full absolute inset-0 z-20' : '',
+            showMap ? 'hidden md:flex md:w-[42%] lg:w-[38%]' : 'hidden',
+            mobileMapOpen ? '!flex !w-full absolute inset-0 z-20' : '',
           ].join(' ')}
         >
           <MapView
@@ -157,9 +161,9 @@ export default function HomePage() {
             onListingClick={handlePinClick}
             onListingHover={handleHover}
           />
-          {showMobileMap && (
+          {mobileMapOpen && (
             <button
-              onClick={() => setShowMobileMap(false)}
+              onClick={() => setMobileMapOpen(false)}
               className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-navy-700 text-white text-sm font-medium px-5 py-2 rounded-full shadow-lg flex items-center gap-2"
             >
               ← Back to listings
@@ -167,7 +171,7 @@ export default function HomePage() {
           )}
         </div>
 
-        <div className={['flex-1 overflow-y-auto', showMobileMap ? 'hidden md:block' : ''].join(' ')}>
+        <div className={['flex-1 overflow-y-auto', mobileMapOpen ? 'hidden md:block' : ''].join(' ')}>
           <ListingGrid
             listings={filteredListings}
             isLoading={isLoading}
@@ -183,9 +187,9 @@ export default function HomePage() {
         </div>
       </div>
 
-      {!showMobileMap && (
+      {!mobileMapOpen && (
         <button
-          onClick={() => setShowMobileMap(true)}
+          onClick={() => setMobileMapOpen(true)}
           className="fixed bottom-6 left-1/2 -translate-x-1/2 md:hidden z-30 flex items-center gap-2 bg-navy-700 text-white text-sm font-semibold px-6 py-3 rounded-full shadow-xl active:scale-95 transition-transform"
         >
           <Map className="h-4 w-4" />
