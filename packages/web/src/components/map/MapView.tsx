@@ -11,6 +11,7 @@ interface MapViewProps {
   hoveredId: string | null;
   center: [number, number];
   zoom: number;
+  fitBoundsKey?: string; // change this value to trigger a fitBounds to current listings
   onListingClick: (listing: Listing) => void;
   onListingHover: (id: string | null) => void;
 }
@@ -20,6 +21,7 @@ export default function MapView({
   hoveredId,
   center,
   zoom,
+  fitBoundsKey,
   onListingClick,
   onListingHover,
 }: MapViewProps) {
@@ -78,6 +80,16 @@ export default function MapView({
   useEffect(() => {
     mapRef.current?.flyTo(center, zoom, { duration: 1.2 });
   }, [center, zoom]);
+
+  // ── 2b. Fit map to listing cluster when filter changes ───────────────────
+  useEffect(() => {
+    if (!fitBoundsKey || !mapRef.current) return;
+    const valid = listings.filter((l) => l.latitude && l.longitude);
+    if (!valid.length) return;
+    const bounds = L.latLngBounds(valid.map((l) => [l.latitude, l.longitude]));
+    mapRef.current.flyToBounds(bounds, { padding: [48, 48], maxZoom: 14, duration: 1.0 });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fitBoundsKey]);
 
   // ── 3. Sync markers when the listings array changes ──────────────────────
   useEffect(() => {

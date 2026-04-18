@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { Map, Lock } from 'lucide-react';
 import { useListings } from '@/hooks/useListings';
@@ -50,6 +50,8 @@ export default function HomePage() {
   const { showMap, toggle: toggleMap } = useMapToggle(true);
   const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const [authModal, setAuthModal] = useState<'signin' | 'signup' | null>(null);
+  const [fitBoundsKey, setFitBoundsKey] = useState<string | undefined>(undefined);
+  const prevFilterKeyRef = useRef<string>('');
 
   const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useListings({
     borough: filters.borough || undefined,
@@ -91,6 +93,23 @@ export default function HomePage() {
 
     return results;
   }, [allListings, filters, location]);
+
+  // When filters change and produce listings, fly the map to fit them.
+  // We track a stable "filter key" so we only trigger on filter changes,
+  // not on paginating (loading more) or hover events.
+  useEffect(() => {
+    const filterKey = [
+      filters.borough, filters.buildingStatus, filters.source,
+      filters.postcode, filters.priceMin, filters.priceMax,
+      filters.topN, location?.label ?? '',
+    ].join('|');
+
+    const hasActiveFilter = filterKey !== prevFilterKeyRef.current;
+    if (!hasActiveFilter || !filteredListings.length) return;
+
+    prevFilterKeyRef.current = filterKey;
+    setFitBoundsKey(filterKey);
+  }, [filters, location, filteredListings]);
 
   const handleHover = useCallback((id: string | null) => {
     setHoveredId((prev) => (prev === id ? prev : id));
@@ -169,6 +188,7 @@ export default function HomePage() {
             hoveredId={hoveredId}
             center={mapCenter}
             zoom={mapZoom}
+            fitBoundsKey={fitBoundsKey}
             onListingClick={handlePinClick}
             onListingHover={handleHover}
           />

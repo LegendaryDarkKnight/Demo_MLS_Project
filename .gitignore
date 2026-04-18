@@ -12,3 +12,4 @@ packages/api/dist/
 prompt.md
 *.txt
 .claude
+packages/api/data

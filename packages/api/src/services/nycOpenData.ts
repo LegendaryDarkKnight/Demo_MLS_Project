@@ -1,5 +1,37 @@
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 import { getCached, setCached } from './cache';
+
+const DISK_CACHE_DIR = path.resolve(__dirname, '../../data');
+const DISK_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function diskCachePath(key: string): string {
+  const safe = key.replace(/[^a-z0-9]/gi, '_');
+  return path.join(DISK_CACHE_DIR, `nyc-cache-${safe}.json`);
+}
+
+function readDiskCache<T>(key: string): T | null {
+  const file = diskCachePath(key);
+  try {
+    const raw = fs.readFileSync(file, 'utf-8');
+    const { data, savedAt } = JSON.parse(raw) as { data: T; savedAt: number };
+    if (Date.now() - savedAt < DISK_CACHE_TTL_MS) return data;
+    fs.unlinkSync(file);
+  } catch {
+    // miss or corrupt
+  }
+  return null;
+}
+
+function writeDiskCache<T>(key: string, data: T): void {
+  try {
+    fs.mkdirSync(DISK_CACHE_DIR, { recursive: true });
+    fs.writeFileSync(diskCachePath(key), JSON.stringify({ data, savedAt: Date.now() }));
+  } catch (e) {
+    console.warn('[cache] disk write failed:', e);
+  }
+}
 
 const NYC_BASE = 'https://data.cityofnewyork.us/resource/hg8x-zxpr.json';
 
@@ -133,10 +165,18 @@ export async function fetchListings(params: {
   offset?: number;
 }): Promise<{ listings: Listing[]; total: number }> {
   const cacheKey = `listings:${JSON.stringify(params)}`;
-  const hit = getCached<{ listings: Listing[]; total: number }>(cacheKey);
-  if (hit) {
-    console.log(`[cache] HIT ${cacheKey}`);
-    return hit;
+
+  const memHit = getCached<{ listings: Listing[]; total: number }>(cacheKey);
+  if (memHit) {
+    console.log(`[cache] HIT (memory) ${cacheKey}`);
+    return memHit;
+  }
+
+  const diskHit = readDiskCache<{ listings: Listing[]; total: number }>(cacheKey);
+  if (diskHit) {
+    console.log(`[cache] HIT (disk) ${cacheKey}`);
+    setCached(cacheKey, diskHit, 300);
+    return diskHit;
   }
 
   const sodaParams: Record<string, string> = {
@@ -160,5 +200,6 @@ export async function fetchListings(params: {
   const listings = data.map(mapRecord).filter((l): l is Listing => l !== null);
   const result = { listings, total: listings.length };
   setCached(cacheKey, result, 300);
+  writeDiskCache(cacheKey, result);
   return result;
 }

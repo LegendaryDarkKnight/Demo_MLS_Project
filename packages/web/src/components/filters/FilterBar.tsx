@@ -7,8 +7,9 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Input } from '@/components/ui/input';
 import type { FilterState } from '@/types/listing';
 import { cn } from '@/lib/utils';
+import { useBoroughs } from '@/hooks/useBoroughs';
 
-const BOROUGHS = ['Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island'];
+const BOROUGH_FALLBACK = ['Manhattan', 'Brooklyn', 'Queens', 'Bronx', 'Staten Island'];
 const SOURCES = [
   { label: 'NYC Open Data', value: 'nyc-open-data' },
   { label: 'RentCast', value: 'rentcast' },
@@ -75,6 +76,7 @@ export default function FilterBar({
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
+  const { data: boroughs = BOROUGH_FALLBACK } = useBoroughs();
 
   function set(patch: Partial<FilterState>) {
     onFiltersChange({ ...filters, ...patch });
@@ -231,7 +233,7 @@ export default function FilterBar({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__all__">All Boroughs</SelectItem>
-                    {BOROUGHS.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                    {boroughs.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
