@@ -1,3 +1,17 @@
+CREATE TABLE IF NOT EXISTS users (
+  id VARCHAR(36) PRIMARY KEY, 
+  email VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL, 
+  first_name VARCHAR(100),
+  last_name VARCHAR(100),
+  phone_number VARCHAR(20),
+  role ENUM('user', 'admin') DEFAULT 'user',
+  saved_searches JSON, 
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_email (email)
+);
+
 CREATE TABLE IF NOT EXISTS rentcast_cache (
   cache_key  VARCHAR(255) PRIMARY KEY,
   fetched_at BIGINT       NOT NULL
@@ -20,14 +34,9 @@ CREATE TABLE IF NOT EXISTS rentcast_listings (
   bedrooms         INT            NOT NULL DEFAULT 0,
   CONSTRAINT fk_cache_key FOREIGN KEY (cache_key)
     REFERENCES rentcast_cache(cache_key)
-    ON DELETE CASCADE
+    ON DELETE CASCADE,
+    
+  -- Define your indexes here instead of separately
+  INDEX idx_rentcast_listings_borough (borough),
+  INDEX idx_rentcast_listings_postcode (postcode)
 );
-
-CREATE INDEX IF NOT EXISTS idx_rentcast_listings_cache_key
-  ON rentcast_listings(cache_key);
-
-CREATE INDEX IF NOT EXISTS idx_rentcast_listings_borough
-  ON rentcast_listings(borough);
-
-CREATE INDEX IF NOT EXISTS idx_rentcast_listings_postcode
-  ON rentcast_listings(postcode);

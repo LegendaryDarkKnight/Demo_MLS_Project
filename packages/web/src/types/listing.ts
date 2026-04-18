@@ -51,5 +51,13 @@ export interface ApiResponse<T> {
   success: boolean;
   data: T;
   error?: string;
-  meta?: { total: number; limit: number; offset: number };
+  meta?: { total: number; visible: number; guestLimited: boolean; limit: number; offset: number };
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  role: string;
 }

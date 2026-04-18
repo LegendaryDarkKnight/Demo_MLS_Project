@@ -7,6 +7,10 @@ export function isDbAvailable(): boolean {
   return pool !== null;
 }
 
+export function getPool(): mysql.Pool | null {
+  return pool;
+}
+
 export async function initDb(): Promise<void> {
   const { DB_HOST, DB_PORT, DB_USER, DB_PASSWORD, DB_NAME } = process.env;
 
@@ -75,6 +79,13 @@ export async function getCacheEntry(
     console.error('[db] getCacheEntry failed:', (err as Error).message);
     return null;
   }
+}
+
+export async function closeDb(): Promise<void> {
+  if (!pool) return;
+  await pool.end();
+  pool = null;
+  console.log('[db] connection pool closed');
 }
 
 export async function saveCacheEntry(

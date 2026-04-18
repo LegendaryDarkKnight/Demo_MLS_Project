@@ -13,9 +13,12 @@ function isNYC(city?: string, state?: string): boolean {
   );
 }
 
+const GUEST_LIMIT = 10;
+
 // GET /api/listings
 router.get('/', async (req: Request, res: Response) => {
   try {
+    const isAuthenticated = !!req.user;
     const {
       borough, postcode,
       city, state,
@@ -56,12 +59,16 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     const combined = [...nycResult.listings, ...rentcastListings];
+    const totalCount = combined.length;
+    const visibleListings = isAuthenticated ? combined : combined.slice(0, GUEST_LIMIT);
 
     res.json({
       success: true,
-      data: combined,
+      data: visibleListings,
       meta: {
-        total: combined.length,
+        total: totalCount,
+        visible: visibleListings.length,
+        guestLimited: !isAuthenticated,
         nycTotal: nycResult.listings.length,
         rentcastTotal: rentcastListings.length,
         city: rcCity,

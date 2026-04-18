@@ -2,13 +2,14 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { Map } from 'lucide-react';
+import { Map, Lock } from 'lucide-react';
 import { useListings } from '@/hooks/useListings';
 import { useMapToggle } from '@/hooks/useMapToggle';
 import Header from '@/components/layout/Header';
 import FilterBar from '@/components/filters/FilterBar';
 import ListingGrid from '@/components/listings/ListingGrid';
 import ListingDetail from '@/components/listings/ListingDetail';
+import AuthModal from '@/components/auth/AuthModal';
 import { extractLocation } from '@/lib/locationUtils';
 import type { FilterState, Listing, SearchSuggestion } from '@/types/listing';
 
@@ -47,6 +48,7 @@ export default function HomePage() {
   const { showMap, toggle: toggleMap } = useMapToggle(true);
   const [mobileMapOpen, setMobileMapOpen] = useState(false);
   const [displayCount, setDisplayCount] = useState(10);
+  const [authModal, setAuthModal] = useState<'signin' | 'signup' | null>(null);
 
   const { data, isLoading, isError } = useListings({
     borough: filters.borough || undefined,
@@ -184,6 +186,37 @@ export default function HomePage() {
             displayCount={displayCount}
             onShowMore={() => setDisplayCount((n) => n + 20)}
           />
+          {data?.guestLimited && (
+            <div className="mx-4 mb-6 rounded-xl border border-blue-200 bg-blue-50 p-5 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100">
+                <Lock className="h-5 w-5 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-blue-900">
+                  {data.total - filteredListings.length > 0
+                    ? `${data.total - filteredListings.length} more listings available`
+                    : 'More listings available'}
+                </p>
+                <p className="text-sm text-blue-700 mt-0.5">
+                  Sign in or create a free account to see all results.
+                </p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button
+                  onClick={() => setAuthModal('signin')}
+                  className="rounded-lg border border-blue-300 bg-white px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 transition-colors"
+                >
+                  Sign in
+                </button>
+                <button
+                  onClick={() => setAuthModal('signup')}
+                  className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+                >
+                  Sign up free
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -202,6 +235,14 @@ export default function HomePage() {
         isOpen={!!selectedListing}
         onClose={() => setSelectedListing(null)}
       />
+
+      {authModal && (
+        <AuthModal
+          isOpen
+          defaultMode={authModal}
+          onClose={() => setAuthModal(null)}
+        />
+      )}
     </div>
   );
 }
