@@ -1,0 +1,33 @@
+services:
+  mysql:
+    image: mysql:8
+    container_name: ${MYSQL_CONTAINER_NAME}
+    ports:
+      - "${MYSQL_PORT}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      retries: 10
+
+  mysql-init:
+    image: mysql:8
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ./init:/init
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    entrypoint: >
+      bash -c "
+      mysql -h mysql -uroot -p$$MYSQL_ROOT_PASSWORD $$MYSQL_DATABASE < /init/init.sql
+      "
+
+volumes:
+  mysql_data:

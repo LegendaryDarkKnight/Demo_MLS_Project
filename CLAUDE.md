@@ -35,9 +35,23 @@ cd packages/api && npm run build    # compiles TS → dist/
 Create `.env` at the **repo root** (not inside packages):
 ```
 RENT_CAST_API=<your-rentcast-api-key>
+
+# MySQL Docker (docker-compose vars)
+MYSQL_CONTAINER_NAME=mls-db
+MYSQL_PORT=3306
+MYSQL_ROOT_PASSWORD=<strong-password>
+MYSQL_DATABASE=urbanlease
+
+# MySQL connection for API (optional — if omitted, falls back to JSON disk cache)
+DB_HOST=localhost
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=<same-as-MYSQL_ROOT_PASSWORD>
+DB_NAME=urbanlease
 ```
 
 > API startup reads this from `../../../.env` relative to `src/index.ts`. If the key is missing, RentCast service returns an empty array and logs `[rentcast] RENT_CAST_API not set`.
+> If DB env vars are missing or the connection fails, the service logs a warning and falls back to the JSON disk cache automatically.
 
 Frontend reads `NEXT_PUBLIC_API_URL` (defaults to `http://localhost:3001`).
 
@@ -49,7 +63,7 @@ Monorepo (npm workspaces) — `packages/api` and `packages/web` are independent 
 
 ### Backend — `packages/api/`
 
-**Entry:** `src/index.ts` — sets up Express, CORS (localhost:3000 and :3001 only), parses JSON, mounts routes.
+**Entry:** `src/index.ts` — calls `initDb()` first, then sets up Express, CORS (localhost:3000 and :3001 only), parses JSON, mounts routes.
 
 **Routes:**
 | Route | Handler | Description |
@@ -65,10 +79,19 @@ Monorepo (npm workspaces) — `packages/api` and `packages/web` are independent 
 | Source | Service | Cache Layer | TTL |
 |---|---|---|---|
 | NYC Open Data (SODA `hg8x-zxpr`) | `nycOpenData.ts` | In-memory (NodeCache) | 5 min |
-| RentCast API (long-term rentals) | `rentcast.ts` | In-memory Map + disk JSON | 7 days |
+| RentCast API (long-term rentals) | `rentcast.ts` | In-memory Map → MySQL → JSON fallback | 7 days |
 | Nominatim geocoding | `search.ts` | In-memory | 10 min |
 
-RentCast disk cache lives at `packages/api/data/rentcast-cache.json`. Delete this file to force a fresh fetch. Key is `city:state` (e.g. `new york:NY`).
+**RentCast cache layers (in order):**
+1. **L1 — in-memory `Map`:** fastest, lives for the process lifetime
+2. **L2 — MySQL** (`rentcast_cache` + `rentcast_listings` tables): persistent, survives restarts; initialized via `init/init.sql`
+3. **L2 fallback — JSON** (`packages/api/data/rentcast-cache.json`): used automatically if DB env vars are missing or MySQL connection fails at startup
+
+Cache key is `city:state` (e.g. `new york:ny`). TTL is 7 days — on expiry the next request triggers a live API call and overwrites the stored entry.
+
+**New service:** `src/services/db.ts` — manages MySQL connection pool via the `mysql2` package (`initDb`, `getCacheEntry`, `saveCacheEntry`). If `initDb` fails, `isDbAvailable()` returns `false` and `rentcast.ts` silently uses the JSON path.
+
+**Schema init:** `init/init.sql` — MySQL script run by the `mysql-init` Docker service on first startup. Creates `rentcast_cache` and `rentcast_listings` tables with indexes if they don't already exist.
 
 ### Frontend — `packages/web/`
 

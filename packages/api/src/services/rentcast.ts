@@ -2,12 +2,13 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import type { Listing } from './nycOpenData';
+import { isDbAvailable, getCacheEntry, saveCacheEntry } from './db';
 
 const CACHE_FILE = path.join(__dirname, '../../data/rentcast-cache.json');
-const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days per city entry
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const BASE_URL = 'https://api.rentcast.io/v1';
 
-// In-memory store: "city:state" → listings
+// L1: in-memory cache
 const memCache = new Map<string, Listing[]>();
 
 interface CacheEntry { fetchedAt: number; listings: Listing[] }
@@ -70,22 +71,53 @@ function mapRecord(r: Record<string, unknown>, index: number, city: string): Lis
   };
 }
 
+async function readCache(key: string): Promise<CacheEntry | null> {
+  if (isDbAvailable()) {
+    const entry = await getCacheEntry(key);
+    if (entry) {
+      console.log(`[rentcast] db cache hit for ${key}`);
+      return entry;
+    }
+    return null;
+  }
+
+  // JSON fallback
+  const store = loadDisk();
+  const entry = store[key];
+  if (entry) {
+    console.log(`[rentcast] disk cache hit for ${key}`);
+    return entry;
+  }
+  return null;
+}
+
+async function writeCache(key: string, listings: Listing[]): Promise<void> {
+  const fetchedAt = Date.now();
+  if (isDbAvailable()) {
+    await saveCacheEntry(key, fetchedAt, listings);
+    return;
+  }
+
+  // JSON fallback
+  const store = loadDisk();
+  store[key] = { fetchedAt, listings };
+  saveDisk(store);
+}
+
 export async function fetchRentCastListings(city: string, state: string): Promise<Listing[]> {
   const key = cacheKey(city, state);
 
-  // 1. In-memory hit
+  // L1: in-memory
   if (memCache.has(key)) return memCache.get(key)!;
 
-  // 2. Disk hit
-  const store = loadDisk();
-  const entry = store[key];
-  if (entry && Date.now() - entry.fetchedAt < CACHE_TTL_MS) {
-    console.log(`[rentcast] disk cache hit for ${key}`);
-    memCache.set(key, entry.listings);
-    return entry.listings;
+  // L2: DB or JSON
+  const cached = await readCache(key);
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    memCache.set(key, cached.listings);
+    return cached.listings;
   }
 
-  // 3. Live fetch
+  // L3: live fetch
   const apiKey = process.env.RENT_CAST_API;
   if (!apiKey) {
     console.warn('[rentcast] RENT_CAST_API not set');
@@ -105,8 +137,7 @@ export async function fetchRentCastListings(city: string, state: string): Promis
       .map((r, i) => mapRecord(r as Record<string, unknown>, i, city))
       .filter((l): l is Listing => l !== null);
 
-    store[key] = { fetchedAt: Date.now(), listings };
-    saveDisk(store);
+    await writeCache(key, listings);
     memCache.set(key, listings);
     console.log(`[rentcast] cached ${listings.length} listings for ${key}`);
     return listings;
