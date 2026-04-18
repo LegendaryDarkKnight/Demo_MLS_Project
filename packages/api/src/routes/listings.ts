@@ -22,7 +22,8 @@ router.get('/', async (req: Request, res: Response) => {
     const {
       borough, postcode,
       city, state,
-      limit = '200', offset = '0',
+      lat, lon,
+      limit = '50', offset = '0',
     } = req.query as Record<string, string>;
 
     const boroughFilter = borough?.trim() || undefined;
@@ -30,8 +31,9 @@ router.get('/', async (req: Request, res: Response) => {
     const cityParam = city?.trim() || undefined;
     const stateParam = state?.trim() || undefined;
     const nyc = isNYC(cityParam, stateParam);
+    const parsedLimit = Math.min(parseInt(limit) || 50, 100);
+    const parsedOffset = parseInt(offset) || 0;
 
-    // Resolve which city/state to query RentCast with
     const rcCity = cityParam ?? 'New York';
     const rcState = stateParam ?? 'NY';
 
@@ -40,8 +42,8 @@ router.get('/', async (req: Request, res: Response) => {
         ? fetchListings({
             borough: boroughFilter,
             postcode: postcodeFilter,
-            limit: Math.min(parseInt(limit) || 200, 500),
-            offset: parseInt(offset) || 0,
+            limit: Math.min(parsedLimit, 500),
+            offset: parsedOffset,
           })
         : Promise.resolve({ listings: [], total: 0 }),
       fetchRentCastListings(rcCity, rcState),
@@ -58,11 +60,20 @@ router.get('/', async (req: Request, res: Response) => {
       rentcastListings = rentcastListings.filter((l) => l.postcode === postcodeFilter);
     }
 
+    // For non-NYC: if caller supplies search coords, sort by proximity so
+    // the first page shows listings nearest to the searched location.
+    const searchLat = lat ? parseFloat(lat) : NaN;
+    const searchLon = lon ? parseFloat(lon) : NaN;
+    if (!nyc && isFinite(searchLat) && isFinite(searchLon)) {
+      rentcastListings = [...rentcastListings].sort((a, b) => {
+        const distA = (a.latitude - searchLat) ** 2 + (a.longitude - searchLon) ** 2;
+        const distB = (b.latitude - searchLat) ** 2 + (b.longitude - searchLon) ** 2;
+        return distA - distB;
+      });
+    }
+
     const combined = [...nycResult.listings, ...rentcastListings];
     const totalCount = combined.length;
-
-    const parsedLimit = Math.min(parseInt(limit) || 50, 100);
-    const parsedOffset = parseInt(offset) || 0;
 
     const paginated = isAuthenticated
       ? combined.slice(parsedOffset, parsedOffset + parsedLimit)

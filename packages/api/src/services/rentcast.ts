@@ -104,12 +104,25 @@ async function writeCache(key: string, listings: Listing[]): Promise<void> {
   saveDisk(store);
 }
 
+// Tracks in-progress fetches to avoid duplicate API calls for the same key
+const pendingFetch = new Map<string, Promise<Listing[]>>();
+
 export async function fetchRentCastListings(city: string, state: string): Promise<Listing[]> {
   const key = cacheKey(city, state);
 
   // L1: in-memory
   if (memCache.has(key)) return memCache.get(key)!;
 
+  // Deduplicate concurrent requests for the same key
+  if (pendingFetch.has(key)) return pendingFetch.get(key)!;
+
+  const work = _doFetch(key, city, state);
+  pendingFetch.set(key, work);
+  work.finally(() => pendingFetch.delete(key));
+  return work;
+}
+
+async function _doFetch(key: string, city: string, state: string): Promise<Listing[]> {
   // L2: DB or JSON
   const cached = await readCache(key);
   if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
@@ -117,24 +130,39 @@ export async function fetchRentCastListings(city: string, state: string): Promis
     return cached.listings;
   }
 
-  // L3: live fetch
+  // L3: live fetch — paginate through all results to build a full cache
   const apiKey = process.env.RENT_CAST_API;
   if (!apiKey) {
     console.warn('[rentcast] RENT_CAST_API not set');
+    // Return stale cache rather than nothing
+    if (cached) return cached.listings;
     return [];
   }
 
+  const PAGE = 500; // RentCast max per call
+  let allRaw: Record<string, unknown>[] = [];
+  let offset = 0;
+
   console.log(`[rentcast] fetching ${city}, ${state} (1 of ~50 monthly calls)`);
   try {
-    const { data } = await axios.get(`${BASE_URL}/listings/rental/long-term`, {
-      params: { city, state, status: 'Active', limit: 500 },
-      headers: { 'X-Api-Key': apiKey },
-      timeout: 20_000,
-    });
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      const { data } = await axios.get(`${BASE_URL}/listings/rental/long-term`, {
+        params: { city, state, status: 'Active', limit: PAGE, offset },
+        headers: { 'X-Api-Key': apiKey },
+        timeout: 20_000,
+      });
 
-    const raw = Array.isArray(data) ? data : [];
-    const listings = raw
-      .map((r, i) => mapRecord(r as Record<string, unknown>, i, city))
+      const page = Array.isArray(data) ? data as Record<string, unknown>[] : [];
+      allRaw = allRaw.concat(page);
+
+      // RentCast returns fewer than PAGE → no more pages
+      if (page.length < PAGE) break;
+      offset += PAGE;
+    }
+
+    const listings = allRaw
+      .map((r, i) => mapRecord(r, i, city))
       .filter((l): l is Listing => l !== null);
 
     await writeCache(key, listings);
@@ -143,6 +171,12 @@ export async function fetchRentCastListings(city: string, state: string): Promis
     return listings;
   } catch (err) {
     console.error(`[rentcast] fetch failed for ${key}:`, err);
+    // Return stale cache if available rather than empty
+    if (cached) {
+      console.warn(`[rentcast] returning stale cache for ${key}`);
+      memCache.set(key, cached.listings);
+      return cached.listings;
+    }
     return [];
   }
 }

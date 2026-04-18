@@ -15,6 +15,8 @@ export async function getListings(params: {
   postcode?: string;
   city?: string;
   state?: string;
+  lat?: number;
+  lon?: number;
   limit?: number;
   offset?: number;
 }): Promise<{ listings: Listing[]; total: number; guestLimited: boolean; hasMore: boolean }> {

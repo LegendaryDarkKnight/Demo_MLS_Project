@@ -34,6 +34,8 @@ interface ActiveLocation {
   state: string;
   label: string;
   isNYC: boolean;
+  lat?: number;
+  lon?: number;
   bounds?: [number, number, number, number];
 }
 
@@ -54,6 +56,8 @@ export default function HomePage() {
     postcode: filters.postcode || undefined,
     city: location?.city,
     state: location?.state,
+    lat: location?.lat,
+    lon: location?.lon,
   });
 
   const allListings = useMemo(
@@ -112,9 +116,13 @@ export default function HomePage() {
       const bounds = result.boundingbox?.length === 4
         ? result.boundingbox.map(parseFloat) as [number, number, number, number]
         : undefined;
-      setLocation({ ...resolved, bounds });
-      // Reset filters that don't apply when switching city
-      setFilters((prev) => ({ ...prev, borough: '', postcode: '' }));
+      setLocation({
+        ...resolved,
+        lat: isFinite(lat) ? lat : undefined,
+        lon: isFinite(lon) ? lon : undefined,
+        bounds,
+      });
+      setFilters((prev) => ({ ...prev, borough: '', postcode: '', source: '' }));
     }
   }
 

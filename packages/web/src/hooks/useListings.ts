@@ -8,6 +8,8 @@ interface ListingFilters {
   postcode?: string;
   city?: string;
   state?: string;
+  lat?: number;
+  lon?: number;
 }
 
 export function useListings(filters: ListingFilters = {}) {
@@ -19,6 +21,8 @@ export function useListings(filters: ListingFilters = {}) {
         postcode: filters.postcode || undefined,
         city: filters.city || undefined,
         state: filters.state || undefined,
+        lat: filters.lat,
+        lon: filters.lon,
         limit: PAGE_SIZE,
         offset: pageParam,
       }),
