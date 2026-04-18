@@ -60,21 +60,30 @@ router.get('/', async (req: Request, res: Response) => {
 
     const combined = [...nycResult.listings, ...rentcastListings];
     const totalCount = combined.length;
-    const visibleListings = isAuthenticated ? combined : combined.slice(0, GUEST_LIMIT);
+
+    const parsedLimit = Math.min(parseInt(limit) || 50, 100);
+    const parsedOffset = parseInt(offset) || 0;
+
+    const paginated = isAuthenticated
+      ? combined.slice(parsedOffset, parsedOffset + parsedLimit)
+      : combined.slice(0, GUEST_LIMIT);
 
     res.json({
       success: true,
-      data: visibleListings,
+      data: paginated,
       meta: {
         total: totalCount,
-        visible: visibleListings.length,
+        visible: paginated.length,
         guestLimited: !isAuthenticated,
         nycTotal: nycResult.listings.length,
         rentcastTotal: rentcastListings.length,
         city: rcCity,
         state: rcState,
-        limit: parseInt(limit),
-        offset: parseInt(offset),
+        limit: parsedLimit,
+        offset: parsedOffset,
+        hasMore: isAuthenticated
+          ? parsedOffset + parsedLimit < totalCount
+          : false,
       },
     });
   } catch (err) {

@@ -17,12 +17,13 @@ export async function getListings(params: {
   state?: string;
   limit?: number;
   offset?: number;
-}): Promise<{ listings: Listing[]; total: number; guestLimited: boolean }> {
+}): Promise<{ listings: Listing[]; total: number; guestLimited: boolean; hasMore: boolean }> {
   const { data } = await apiClient.get<ApiResponse<Listing[]>>('/api/listings', { params });
   return {
     listings: data.data,
     total: data.meta?.total ?? data.data.length,
     guestLimited: data.meta?.guestLimited ?? false,
+    hasMore: data.meta?.hasMore ?? false,
   };
 }
 

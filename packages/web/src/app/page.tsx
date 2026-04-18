@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { Map, Lock } from 'lucide-react';
 import { useListings } from '@/hooks/useListings';
@@ -47,20 +47,26 @@ export default function HomePage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const { showMap, toggle: toggleMap } = useMapToggle(true);
   const [mobileMapOpen, setMobileMapOpen] = useState(false);
-  const [displayCount, setDisplayCount] = useState(10);
   const [authModal, setAuthModal] = useState<'signin' | 'signup' | null>(null);
 
-  const { data, isLoading, isError } = useListings({
+  const { data, isLoading, isError, fetchNextPage, hasNextPage, isFetchingNextPage } = useListings({
     borough: filters.borough || undefined,
     postcode: filters.postcode || undefined,
     city: location?.city,
     state: location?.state,
   });
 
-  const filteredListings = useMemo<Listing[]>(() => {
-    if (!data?.listings) return [];
+  const allListings = useMemo(
+    () => data?.pages.flatMap((p) => p.listings) ?? [],
+    [data]
+  );
+  const totalCount = data?.pages[0]?.total ?? 0;
+  const guestLimited = data?.pages[0]?.guestLimited ?? false;
 
-    let results = data.listings.filter((l) => {
+  const filteredListings = useMemo<Listing[]>(() => {
+    if (!allListings.length) return [];
+
+    let results = allListings.filter((l) => {
       // Narrow to search bounding box when set
       if (location?.bounds) {
         const [south, north, west, east] = location.bounds;
@@ -80,12 +86,7 @@ export default function HomePage() {
     if (filters.topN > 0) results = results.slice(0, filters.topN);
 
     return results;
-  }, [data, filters, location]);
-
-  // Reset display count whenever filters or location change
-  useEffect(() => {
-    setDisplayCount(10);
-  }, [filters, location]);
+  }, [allListings, filters, location]);
 
   const handleHover = useCallback((id: string | null) => {
     setHoveredId((prev) => (prev === id ? prev : id));
@@ -183,18 +184,16 @@ export default function HomePage() {
             selectedId={selectedListing?.id ?? null}
             onHover={handleHover}
             onSelect={handleCardSelect}
-            displayCount={displayCount}
-            onShowMore={() => setDisplayCount((n) => n + 20)}
           />
-          {data?.guestLimited && (
+          {guestLimited && (
             <div className="mx-4 mb-6 rounded-xl border border-blue-200 bg-blue-50 p-5 flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-100">
                 <Lock className="h-5 w-5 text-blue-600" />
               </div>
               <div className="flex-1">
                 <p className="font-semibold text-blue-900">
-                  {data.total - filteredListings.length > 0
-                    ? `${data.total - filteredListings.length} more listings available`
+                  {totalCount - filteredListings.length > 0
+                    ? `${totalCount - filteredListings.length} more listings available`
                     : 'More listings available'}
                 </p>
                 <p className="text-sm text-blue-700 mt-0.5">
@@ -215,6 +214,17 @@ export default function HomePage() {
                   Sign up free
                 </button>
               </div>
+            </div>
+          )}
+          {hasNextPage && !guestLimited && (
+            <div className="mx-4 mb-6 flex justify-center">
+              <button
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+                className="rounded-lg bg-slate-700 px-6 py-2.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 transition-colors"
+              >
+                {isFetchingNextPage ? 'Loading…' : `Load more listings (${totalCount - allListings.length} remaining)`}
+              </button>
             </div>
           )}
         </div>
