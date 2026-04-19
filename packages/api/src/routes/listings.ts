@@ -54,7 +54,7 @@ function isNYC(city?: string, state?: string): boolean {
   );
 }
 
-const GUEST_LIMIT = 10;
+const GUEST_LIMIT = 50;
 
 // GET /api/listings
 router.get('/', async (req: Request, res: Response) => {
@@ -94,8 +94,7 @@ router.get('/', async (req: Request, res: Response) => {
         ? fetchListings({
             borough: boroughFilter,
             postcode: postcodeFilter,
-            limit: Math.min(parsedLimit, 500),
-            offset: parsedOffset,
+            limit: 500,
           })
         : Promise.resolve({ listings: [], total: 0 }),
       fetchRentCastListings(rcCity, rcState),
