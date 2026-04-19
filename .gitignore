@@ -2,6 +2,7 @@ node_modules/
 .next/
 dist/
 .env
+.env.example
 .env.local
 .env*.local
 *.log
@@ -13,3 +14,4 @@ prompt.md
 *.txt
 .claude
 packages/api/data
+ignore

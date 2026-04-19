@@ -7,6 +7,12 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
+    command: >
+      --innodb_buffer_pool_size=128M
+      --performance_schema=OFF
+      --max_connections=50
+      --tmp_table_size=32M
+      --max_heap_table_size=32M
     volumes:
       - mysql_data:/var/lib/mysql
       - ./init:/docker-entrypoint-initdb.d/
@@ -14,6 +20,16 @@ services:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       retries: 10
+
+  nginx:
+    image: nginx:alpine
+    container_name: urbanlease_nginx
+    ports:
+      - "80:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
 
 volumes:
   mysql_data:
